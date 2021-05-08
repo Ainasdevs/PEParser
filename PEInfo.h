@@ -8,73 +8,96 @@
 #include <cstdio>
 
 class PEInfo {
+#pragma warning(disable:26495)
 struct EXPORT_TABLE_ENTRY {
-	std::string Name;
-	std::string Forwarder;
-	DWORD Ordinal;
-	DWORD OrdinalBiased;
+	std::string name;
+	std::string forwarder;
+	DWORD ordinal;
+	DWORD ordinalBiased;
 	union {
-		DWORD ExportRVA;
-		DWORD ForwarderRVA;
+		DWORD exportRVA;
+		DWORD forwarderRVA;
 	};
-	DWORD ExportRaw;
-	BOOL IsForwarderRVA;
+	DWORD exportRaw;
+	BOOL isForwarderRVA;
 };
 
 struct EXPORT_DATA {
-	IMAGE_EXPORT_DIRECTORY Directory;
-	std::vector<EXPORT_TABLE_ENTRY> ExportTable;
-	std::string Name;
-	DWORD SectionSize;
+	IMAGE_EXPORT_DIRECTORY directory;
+	std::vector<EXPORT_TABLE_ENTRY> exportTable;
+	std::string name;
+	DWORD sectionSize{};
 };
 
 struct IMPORT_FUNCTION_ENTRY {
-	std::string Name;
-	WORD Hint;
-	DWORD Ordinal;
-	BOOL IsImportByOrdinal = 0;
+	std::string name;
+	WORD hint;
+	DWORD ordinal;
+	BOOL isImportByOrdinal = 0;
 };
 
 struct IMPORT_TABLE_ENTRY {
 	union {
-		DWORD   Characteristics;
-		DWORD   OriginalFirstThunk;
+		DWORD   characteristics;
+		DWORD   originalFirstThunk;
 	};
-	DWORD   TimeDateStamp;
-	DWORD   ForwarderChain;
-	DWORD   NameRVA;
-	DWORD   FirstThunk;
-	std::string Name;
-	std::vector<IMPORT_FUNCTION_ENTRY> Functions;
+	DWORD   timestamp;
+	DWORD   forwarderChain;
+	DWORD   nameRVA;
+	DWORD   firstThunk;
+	std::string name;
+	std::vector<IMPORT_FUNCTION_ENTRY> functions;
 };
 
 struct IMPORT_DATA {
-	std::vector<IMPORT_TABLE_ENTRY> ImportTable;
-	DWORD SectionSize;
+	std::vector<IMPORT_TABLE_ENTRY> importTable;
+	DWORD sectionSize;
 };
 
 struct BASERELOC_TABLE_ENTRY {
-	BYTE Type;
-	WORD Offset;
+	BYTE type;
+	DWORD offset;
 };
 
 struct BASERELOC_DATA {
-	std::vector<BASERELOC_TABLE_ENTRY> BaserelocTable;
-	DWORD SectionSize;
+	std::vector<BASERELOC_TABLE_ENTRY> baserelocTable;
+	DWORD sectionSize;
 };
 
+struct SEH_TABLE_ENTRY {
+	union {
+		struct {
+			DWORD beginRVA;
+			BYTE prologLength;
+			DWORD functionLength;
+			BOOL flag32;
+			BOOL flagException;
+		} win32;
+		struct {
+			DWORD beginRVA;
+			DWORD endRVA;
+			DWORD unwindRVA;
+		} win64;
+	};
+};
+
+struct SEH_DATA {
+	std::vector<SEH_TABLE_ENTRY> sehTable;
+	DWORD sectionSize;
+};
+#pragma warning(default:26495)
 
 public:
-	IMAGE_DOS_HEADER m_imageDosHeader;
-	IMAGE_FILE_HEADER m_imageFileHeader;
-	IMAGE_OPTIONAL_HEADER64 m_imageOptHeader;
-	EXPORT_DATA m_imageExportData;
-	IMPORT_DATA m_imageImportData;
-	BASERELOC_DATA m_imageRelocData;
+	IMAGE_DOS_HEADER imageDosHeader;
+	IMAGE_FILE_HEADER imageFileHeader;
+	IMAGE_OPTIONAL_HEADER64 imageOptHeader;
+	EXPORT_DATA imageExportData;
+	IMPORT_DATA imageImportData;
+	BASERELOC_DATA imageRelocData;
+	SEH_DATA imageSehData;
 	// TODO:
-	// SEH
 	// TLS
-	std::vector<IMAGE_SECTION_HEADER> m_imageSectionHeaders;
+	std::vector<IMAGE_SECTION_HEADER> imageSectionHeaders;
 
 	PEInfo(LPCTSTR szFilePath);
 	~PEInfo();
@@ -92,4 +115,3 @@ private:
 	BOOL Parse64();
 	BOOL Parse32();
 };
-
