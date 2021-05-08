@@ -29,9 +29,16 @@ PEInfo::PEInfo(LPCTSTR szFilePath) {
 			throw std::runtime_error("File processor type is not supported by the parser");
 			break;
 	}
+
+	Close();
 }
 
 PEInfo::~PEInfo() {
+	Close();
+	state = FALSE;
+}
+
+VOID PEInfo::Close() {
 	if(lpFile) {
 		UnmapViewOfFile(lpFile);
 		lpFile = NULL;
@@ -44,10 +51,9 @@ PEInfo::~PEInfo() {
 		CloseHandle(hFile);
 		hFile = INVALID_HANDLE_VALUE;
 	}
-	state = FALSE;
 }
 
-BOOL PEInfo::State() {
+BOOL PEInfo::getState() {
 	return state;
 }
 
@@ -56,6 +62,7 @@ BOOL PEInfo::Parse64() {
 
 	PIMAGE_SECTION_HEADER rdataSection = NULL;
 	PIMAGE_SECTION_HEADER textSection = NULL;
+	PIMAGE_SECTION_HEADER relocSection = NULL;
 
 	PIMAGE_SECTION_HEADER sectionHeaders = (PIMAGE_SECTION_HEADER) (lpFile + m_imageDosHeader.e_lfanew + sizeof(IMAGE_NT_HEADERS64));
 	for(WORD i = 0; i < m_imageFileHeader.NumberOfSections; ++i) {
@@ -66,6 +73,8 @@ BOOL PEInfo::Parse64() {
 			rdataSection = &sectionHeaders[i];
 		} else if(!lstrcmpA((LPCSTR) temp.Name, ".text")) {
 			textSection = &sectionHeaders[i];
+		} else if(!lstrcmpA((LPCSTR) temp.Name, ".reloc")) {
+			relocSection = &sectionHeaders[i];
 		}
 
 		m_imageSectionHeaders.push_back(temp);
@@ -73,9 +82,10 @@ BOOL PEInfo::Parse64() {
 
 	INT rdataOffsetOnFile = rdataSection != NULL ? rdataSection->PointerToRawData - rdataSection->VirtualAddress : 0;
 	INT codeOffsetOnFile = textSection != NULL ? textSection->PointerToRawData - textSection->VirtualAddress : 0;
+	INT relocOffsetOnFile = relocSection != NULL ? relocSection->PointerToRawData - relocSection->VirtualAddress : 0;
 
 	m_imageExportData.SectionSize = m_imageOptHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_EXPORT].Size;
-	if(m_imageExportData.SectionSize) {
+	if(m_imageOptHeader.NumberOfRvaAndSizes > IMAGE_DIRECTORY_ENTRY_EXPORT && m_imageExportData.SectionSize) {
 		DWORD directoryRVA = m_imageOptHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_EXPORT].VirtualAddress;
 
 		m_imageExportData.Directory = *(PIMAGE_EXPORT_DIRECTORY) (lpFile + directoryRVA + rdataOffsetOnFile);
@@ -110,7 +120,7 @@ BOOL PEInfo::Parse64() {
 	}
 
 	m_imageImportData.SectionSize = m_imageOptHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_IMPORT].Size;
-	if(m_imageImportData.SectionSize) {
+	if(m_imageOptHeader.NumberOfRvaAndSizes > IMAGE_DIRECTORY_ENTRY_IMPORT && m_imageImportData.SectionSize) {
 		DWORD directoryRVA = m_imageOptHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_IMPORT].VirtualAddress;
 		PIMAGE_IMPORT_DESCRIPTOR importEntry = (PIMAGE_IMPORT_DESCRIPTOR) (lpFile + directoryRVA + rdataOffsetOnFile);
 
@@ -142,6 +152,27 @@ BOOL PEInfo::Parse64() {
 			++importEntry;
 		}
 	}
+
+	m_imageRelocData.SectionSize = m_imageOptHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_BASERELOC].Size;
+	if(m_imageOptHeader.NumberOfRvaAndSizes > IMAGE_DIRECTORY_ENTRY_BASERELOC && m_imageRelocData.SectionSize) {
+		DWORD directoryRVA = m_imageOptHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_BASERELOC].VirtualAddress;
+		PIMAGE_BASE_RELOCATION reloc = (PIMAGE_BASE_RELOCATION) (lpFile + directoryRVA + relocOffsetOnFile);
+
+		DWORD blockSize;
+		for(DWORD sz = m_imageRelocData.SectionSize; sz > 0; sz -= blockSize) {
+			blockSize = reloc->SizeOfBlock;
+			PWORD relocations = (PWORD) (reloc + 1); // right after relocation block header
+
+			for(DWORD i = 0; i < (blockSize - sizeof(IMAGE_BASE_RELOCATION)) / sizeof(WORD); ++i) {
+				BASERELOC_TABLE_ENTRY temp;
+				temp.Type = relocations[i] >> 12;
+				temp.Offset = reloc->VirtualAddress + (relocations[i] & 0x0FFF);
+				m_imageRelocData.BaserelocTable.push_back(temp);
+			}
+			reloc = (PIMAGE_BASE_RELOCATION) ((LPBYTE) reloc + blockSize);
+		}
+	}
+
 
 
 	return TRUE;

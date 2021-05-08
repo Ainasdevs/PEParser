@@ -4,7 +4,10 @@
 #include <stdexcept>
 #include <vector>
 #include <string>
+#include <sstream>
+#include <cstdio>
 
+class PEInfo {
 struct EXPORT_TABLE_ENTRY {
 	std::string Name;
 	std::string Forwarder;
@@ -50,22 +53,35 @@ struct IMPORT_DATA {
 	DWORD SectionSize;
 };
 
-class PEInfo {
+struct BASERELOC_TABLE_ENTRY {
+	BYTE Type;
+	WORD Offset;
+};
+
+struct BASERELOC_DATA {
+	std::vector<BASERELOC_TABLE_ENTRY> BaserelocTable;
+	DWORD SectionSize;
+};
+
+
 public:
 	IMAGE_DOS_HEADER m_imageDosHeader;
 	IMAGE_FILE_HEADER m_imageFileHeader;
 	IMAGE_OPTIONAL_HEADER64 m_imageOptHeader;
 	EXPORT_DATA m_imageExportData;
 	IMPORT_DATA m_imageImportData;
+	BASERELOC_DATA m_imageRelocData;
 	// TODO:
-	// BASE RELOCATIONS
 	// SEH
 	// TLS
 	std::vector<IMAGE_SECTION_HEADER> m_imageSectionHeaders;
 
 	PEInfo(LPCTSTR szFilePath);
 	~PEInfo();
-	BOOL State();
+
+	VOID Close();
+
+	BOOL getState();
 
 private:
 	HANDLE hFile = INVALID_HANDLE_VALUE;
