@@ -13,7 +13,7 @@ struct EXPORT_TABLE_ENTRY {
 	std::string name;
 	std::string forwarder;
 	DWORD ordinal;
-	DWORD ordinalBiased;
+	DWORD ordinalBased;
 	union {
 		DWORD exportRVA;
 		DWORD forwarderRVA;
@@ -65,20 +65,9 @@ struct BASERELOC_DATA {
 };
 
 struct SEH_TABLE_ENTRY {
-	union {
-		struct {
-			DWORD beginRVA;
-			BYTE prologLength;
-			DWORD functionLength;
-			BOOL flag32;
-			BOOL flagException;
-		} win32;
-		struct {
-			DWORD beginRVA;
-			DWORD endRVA;
-			DWORD unwindRVA;
-		} win64;
-	};
+	DWORD beginRVA;
+	DWORD endRVA;
+	DWORD unwindRVA;
 };
 
 struct SEH_DATA {

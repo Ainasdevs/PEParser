@@ -102,7 +102,7 @@ BOOL PEInfo::Parse64() {
 		for(DWORD i = 0; i < imageExportData.directory.NumberOfFunctions; ++i) {
 			EXPORT_TABLE_ENTRY temp;
 			temp.ordinal = i;
-			temp.ordinalBiased = i + imageExportData.directory.Base;
+			temp.ordinalBased = i + imageExportData.directory.Base;
 			temp.exportRVA = addressTable[i];
 			temp.isForwarderRVA = (addressTable[i] >= directoryRVA && addressTable[i] <= directoryRVA + imageExportData.sectionSize);
 
@@ -170,6 +170,9 @@ BOOL PEInfo::Parse64() {
 			for(DWORD i = 0; i < (blockSize - sizeof(IMAGE_BASE_RELOCATION)) / sizeof(WORD); ++i) {
 				BASERELOC_TABLE_ENTRY temp;
 				temp.type = relocations[i] >> 12;
+
+				if(temp.type == IMAGE_REL_BASED_ABSOLUTE) continue;
+
 				temp.offset = reloc->VirtualAddress + (relocations[i] & 0x0FFF);
 				imageRelocData.baserelocTable.push_back(temp);
 			}
@@ -184,9 +187,9 @@ BOOL PEInfo::Parse64() {
 		PDWORD entry = (PDWORD)(lpFile + directoryRVA + pdataOffsetOnFile);
 		for(int i = 0; i < imageSehData.sectionSize / (3 * sizeof(DWORD)); ++i) {
 			SEH_TABLE_ENTRY temp;
-			temp.win64.beginRVA = *(entry++);
-			temp.win64.endRVA = *(entry++);
-			temp.win64.unwindRVA = *(entry++);
+			temp.beginRVA = *(entry++);
+			temp.endRVA = *(entry++);
+			temp.unwindRVA = *(entry++);
 			imageSehData.sehTable.push_back(temp);
 		}
 	}
@@ -205,7 +208,125 @@ BOOL PEInfo::Parse32() {
 	imageOptHeader.SizeOfHeapCommit = pImageOptHeader->SizeOfHeapCommit;
 	memcpy(&imageOptHeader.LoaderFlags, &pImageOptHeader->LoaderFlags, (LPBYTE) &pImageOptHeader->DataDirectory[IMAGE_NUMBEROF_DIRECTORY_ENTRIES] - (LPBYTE) &pImageOptHeader->LoaderFlags);
 
+	PIMAGE_SECTION_HEADER rdataSection = NULL;
+	PIMAGE_SECTION_HEADER textSection = NULL;
+	PIMAGE_SECTION_HEADER relocSection = NULL;
+	PIMAGE_SECTION_HEADER pdataSection = NULL;
 
+	PIMAGE_SECTION_HEADER sectionHeaders = (PIMAGE_SECTION_HEADER) (lpFile + imageDosHeader.e_lfanew + sizeof(IMAGE_NT_HEADERS32));
+	for(WORD i = 0; i < imageFileHeader.NumberOfSections; ++i) {
+		IMAGE_SECTION_HEADER temp;
+		memcpy(&temp, &sectionHeaders[i], sizeof(IMAGE_SECTION_HEADER));
+
+		if(!lstrcmpA((LPCSTR) temp.Name, ".rdata")) {
+			rdataSection = &sectionHeaders[i];
+		} else if(!lstrcmpA((LPCSTR) temp.Name, ".text")) {
+			textSection = &sectionHeaders[i];
+		} else if(!lstrcmpA((LPCSTR) temp.Name, ".reloc")) {
+			relocSection = &sectionHeaders[i];
+		} else if(!lstrcmpA((LPCSTR) temp.Name, ".pdata")) {
+			pdataSection = &sectionHeaders[i];
+		}
+
+		imageSectionHeaders.push_back(temp);
+	}
+
+	INT rdataOffsetOnFile = rdataSection != NULL ? rdataSection->PointerToRawData - rdataSection->VirtualAddress : 0;
+	INT codeOffsetOnFile = textSection != NULL ? textSection->PointerToRawData - textSection->VirtualAddress : 0;
+	INT relocOffsetOnFile = relocSection != NULL ? relocSection->PointerToRawData - relocSection->VirtualAddress : 0;
+	INT pdataOffsetOnFile = pdataSection != NULL ? pdataSection->PointerToRawData - pdataSection->VirtualAddress : 0;
+
+	imageExportData.sectionSize = imageOptHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_EXPORT].Size;
+	if(imageOptHeader.NumberOfRvaAndSizes > IMAGE_DIRECTORY_ENTRY_EXPORT && imageExportData.sectionSize) {
+		DWORD directoryRVA = imageOptHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_EXPORT].VirtualAddress;
+
+		imageExportData.directory = *(PIMAGE_EXPORT_DIRECTORY) (lpFile + directoryRVA + rdataOffsetOnFile);
+		imageExportData.name.assign((CHAR *) lpFile + imageExportData.directory.Name + rdataOffsetOnFile);
+
+		LPDWORD addressTable = (LPDWORD) (lpFile + imageExportData.directory.AddressOfFunctions + rdataOffsetOnFile);
+		LPDWORD namePointerTable = (LPDWORD) (lpFile + imageExportData.directory.AddressOfNames + rdataOffsetOnFile);
+		LPWORD ordinalTable = (LPWORD) (lpFile + imageExportData.directory.AddressOfNameOrdinals + rdataOffsetOnFile);
+
+		for(DWORD i = 0; i < imageExportData.directory.NumberOfFunctions; ++i) {
+			EXPORT_TABLE_ENTRY temp;
+			temp.ordinal = i;
+			temp.ordinalBased = i + imageExportData.directory.Base;
+			temp.exportRVA = addressTable[i];
+			temp.isForwarderRVA = (addressTable[i] >= directoryRVA && addressTable[i] <= directoryRVA + imageExportData.sectionSize);
+
+			if(temp.isForwarderRVA) {
+				temp.exportRaw = addressTable[i] + rdataOffsetOnFile;
+				temp.forwarder.assign((LPCSTR) (lpFile + addressTable[i] + rdataOffsetOnFile));
+			} else {
+				temp.exportRaw = addressTable[i] + codeOffsetOnFile;
+			}
+
+			for(DWORD j = 0; j < imageExportData.directory.NumberOfNames; ++j) {
+				if(ordinalTable[j] == i) {
+					temp.name.assign((LPCSTR) (lpFile + namePointerTable[j] + rdataOffsetOnFile));
+				}
+			}
+
+			imageExportData.exportTable.push_back(temp);
+		}
+	}
+
+	imageImportData.sectionSize = imageOptHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_IMPORT].Size;
+	if(imageOptHeader.NumberOfRvaAndSizes > IMAGE_DIRECTORY_ENTRY_IMPORT && imageImportData.sectionSize) {
+		DWORD directoryRVA = imageOptHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_IMPORT].VirtualAddress;
+		PIMAGE_IMPORT_DESCRIPTOR importEntry = (PIMAGE_IMPORT_DESCRIPTOR) (lpFile + directoryRVA + rdataOffsetOnFile);
+
+		while(importEntry->Characteristics) {
+			IMPORT_TABLE_ENTRY temp;
+			memcpy(&temp, importEntry, sizeof(IMAGE_IMPORT_DESCRIPTOR));
+			temp.name.assign((LPCSTR) (lpFile + temp.nameRVA + rdataOffsetOnFile));
+
+			PULONG functionEntry = (PULONG) (lpFile + importEntry->OriginalFirstThunk + rdataOffsetOnFile);
+
+			while(*functionEntry) {
+				IMPORT_FUNCTION_ENTRY tempFunc;
+
+				if(*functionEntry & IMAGE_ORDINAL_FLAG32) {
+					tempFunc.isImportByOrdinal = TRUE;
+					tempFunc.ordinal = IMAGE_ORDINAL32(*functionEntry);
+				} else {
+					tempFunc.isImportByOrdinal = FALSE;
+					LPBYTE nameTable = (LPBYTE) (lpFile + (*functionEntry) + rdataOffsetOnFile);
+					tempFunc.hint = *((LPWORD) nameTable);
+					tempFunc.name.assign((LPCSTR) (nameTable + sizeof(WORD)));
+				}
+
+				temp.functions.push_back(tempFunc);
+				++functionEntry;
+			}
+
+			imageImportData.importTable.push_back(temp);
+			++importEntry;
+		}
+	}
+
+	imageRelocData.sectionSize = imageOptHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_BASERELOC].Size;
+	if(imageOptHeader.NumberOfRvaAndSizes > IMAGE_DIRECTORY_ENTRY_BASERELOC && imageRelocData.sectionSize) {
+		DWORD directoryRVA = imageOptHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_BASERELOC].VirtualAddress;
+		PIMAGE_BASE_RELOCATION reloc = (PIMAGE_BASE_RELOCATION) (lpFile + directoryRVA + relocOffsetOnFile);
+
+		DWORD blockSize;
+		for(DWORD sz = imageRelocData.sectionSize; sz > 0; sz -= blockSize) {
+			blockSize = reloc->SizeOfBlock;
+			PWORD relocations = (PWORD) (reloc + 1); // right after relocation block header
+
+			for(DWORD i = 0; i < (blockSize - sizeof(IMAGE_BASE_RELOCATION)) / sizeof(WORD); ++i) {
+				BASERELOC_TABLE_ENTRY temp;
+				temp.type = relocations[i] >> 12;
+
+				if(temp.type == IMAGE_REL_BASED_ABSOLUTE) continue;
+
+				temp.offset = reloc->VirtualAddress + (relocations[i] & 0x0FFF);
+				imageRelocData.baserelocTable.push_back(temp);
+			}
+			reloc = (PIMAGE_BASE_RELOCATION) ((LPBYTE) reloc + blockSize);
+		}
+	}
 
 	return TRUE;
 }

@@ -8,7 +8,7 @@ int main(int argc, char *argv[]) {
 	LPCTSTR withexports64 = TEXT("C:\\Development\\Injector\\x64\\DLLRelease\\Injector.dll");
 	LPCTSTR withexports32 = TEXT("C:\\Development\\Injector\\DLLRelease\\Injector.dll");
 	LPCTSTR kernel = TEXT("C:\\Windows\\System32\\kernel32.dll");
-	PEInfo pe(withexports64);
+	PEInfo pe(withexports32);
 
 	return 0;
 }
