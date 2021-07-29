@@ -77,23 +77,26 @@ struct SEH_DATA {
 #pragma warning(default:26495)
 
 public:
-	IMAGE_DOS_HEADER imageDosHeader;
-	IMAGE_FILE_HEADER imageFileHeader;
-	IMAGE_OPTIONAL_HEADER64 imageOptHeader;
-	EXPORT_DATA imageExportData;
-	IMPORT_DATA imageImportData;
-	BASERELOC_DATA imageRelocData;
-	SEH_DATA imageSehData;
+	IMAGE_DOS_HEADER DosHeader;
+	IMAGE_FILE_HEADER FileHeader;
+	IMAGE_OPTIONAL_HEADER64 OptHeader;
+	EXPORT_DATA ExportData;
+	IMPORT_DATA ImportData;
+	BASERELOC_DATA RelocData;
+	SEH_DATA SehData;
 	// TODO:
 	// TLS
-	std::vector<IMAGE_SECTION_HEADER> imageSectionHeaders;
+	std::vector<IMAGE_SECTION_HEADER> SectionHeaders;
 
 	PEInfo(LPCTSTR szFilePath);
+	PEInfo(LPBYTE lpFileBuffer);
+	PEInfo() = default;
 	~PEInfo();
 
+	VOID Parse(LPBYTE lpFileBuffer);
 	VOID Close();
 
-	BOOL getState();
+	BOOL State();
 
 private:
 	HANDLE hFile = INVALID_HANDLE_VALUE;
@@ -101,6 +104,6 @@ private:
 	LPBYTE lpFile = NULL;
 	BOOL state = FALSE;
 
-	BOOL Parse64();
-	BOOL Parse32();
+	BOOL Parse64(LPBYTE lpFile);
+	BOOL Parse32(LPBYTE lpFile);
 };
