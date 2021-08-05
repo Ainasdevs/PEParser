@@ -7,75 +7,75 @@
 #include <sstream>
 #include <cstdio>
 
-class PEInfo {
 #pragma warning(disable:26495)
 struct EXPORT_TABLE_ENTRY {
-	std::string name;
-	std::string forwarder;
-	DWORD ordinal;
-	DWORD ordinalBased;
+	std::string Name;
+	std::string Forwarder;
+	DWORD Ordinal;
+	DWORD OrdinalBased;
 	union {
-		DWORD exportRVA;
-		DWORD forwarderRVA;
+		DWORD ExportRVA;
+		DWORD ForwarderRVA;
 	};
-	DWORD exportRaw;
-	BOOL isForwarderRVA;
+	DWORD ExportRaw;
+	BOOL IsForwarderRVA;
 };
 
 struct EXPORT_DATA {
-	IMAGE_EXPORT_DIRECTORY directory;
-	std::vector<EXPORT_TABLE_ENTRY> exportTable;
-	std::string name;
-	DWORD sectionSize{};
+	IMAGE_EXPORT_DIRECTORY Directory;
+	std::vector<EXPORT_TABLE_ENTRY> ExportTable;
+	std::string Name;
+	DWORD SectionSize;
 };
 
 struct IMPORT_FUNCTION_ENTRY {
-	std::string name;
-	WORD hint;
-	DWORD ordinal;
-	BOOL isImportByOrdinal = 0;
+	std::string Name;
+	WORD Hint;
+	DWORD Ordinal;
+	BOOL IsImportByOrdinal = 0;
 };
 
 struct IMPORT_TABLE_ENTRY {
 	union {
-		DWORD   characteristics;
-		DWORD   originalFirstThunk;
+		DWORD   Characteristics;
+		DWORD   OriginalFirstThunk;
 	};
-	DWORD   timestamp;
-	DWORD   forwarderChain;
-	DWORD   nameRVA;
-	DWORD   firstThunk;
-	std::string name;
-	std::vector<IMPORT_FUNCTION_ENTRY> functions;
+	DWORD   Timestamp;
+	DWORD   ForwarderChain;
+	DWORD   NameRVA;
+	DWORD   FirstThunk;
+	std::string Name;
+	std::vector<IMPORT_FUNCTION_ENTRY> Functions;
 };
 
 struct IMPORT_DATA {
-	std::vector<IMPORT_TABLE_ENTRY> importTable;
-	DWORD sectionSize;
+	std::vector<IMPORT_TABLE_ENTRY> ImportTable;
+	DWORD SectionSize;
 };
 
 struct BASERELOC_TABLE_ENTRY {
-	BYTE type;
-	DWORD offset;
+	BYTE Type;
+	DWORD RVA;
 };
 
 struct BASERELOC_DATA {
-	std::vector<BASERELOC_TABLE_ENTRY> baserelocTable;
-	DWORD sectionSize;
+	std::vector<BASERELOC_TABLE_ENTRY> BaserelocTable;
+	DWORD SectionSize;
 };
 
 struct SEH_TABLE_ENTRY {
-	DWORD beginRVA;
-	DWORD endRVA;
-	DWORD unwindRVA;
+	DWORD BeginRVA;
+	DWORD EndRVA;
+	DWORD UnwindRVA;
 };
 
 struct SEH_DATA {
-	std::vector<SEH_TABLE_ENTRY> sehTable;
-	DWORD sectionSize;
+	std::vector<SEH_TABLE_ENTRY> SehTable;
+	DWORD SectionSize;
 };
 #pragma warning(default:26495)
 
+class PEInfo {
 public:
 	IMAGE_DOS_HEADER DosHeader;
 	IMAGE_FILE_HEADER FileHeader;
@@ -93,6 +93,7 @@ public:
 	PEInfo() = default;
 	~PEInfo();
 
+	IMAGE_SECTION_HEADER *GetSection(LPCSTR szSectionName);
 	VOID Parse(LPBYTE lpFileBuffer);
 	VOID Close();
 
