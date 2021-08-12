@@ -10,12 +10,13 @@ PEInfo::PEInfo(LPCTSTR szFilePath) {
 	lpFile = (LPBYTE) MapViewOfFile(hFileMapping, FILE_MAP_READ, 0, 0, 0);
 	if(lpFile == NULL) throw std::runtime_error("Could not map file view");
 
-	PEInfo::PEInfo(lpFile);
+	Parse(lpFile);
 	Close();
 }
 
 PEInfo::PEInfo(LPBYTE lpFileBuffer) {
 	Parse(lpFileBuffer);
+	Close();
 }
 
 PEInfo::~PEInfo() {
@@ -344,5 +345,16 @@ IMAGE_SECTION_HEADER *PEInfo::GetSection(LPCSTR szSectionName) {
 			return &SectionHeaders[i];
 		}
 	}
+	return NULL;
+}
+
+EXPORT_TABLE_ENTRY *PEInfo::GetExport(std::string Name) {
+	for(INT i = 0; i < ExportData.ExportTable.size(); i++) {
+		EXPORT_TABLE_ENTRY &entry = ExportData.ExportTable[i];
+		if(entry.Name == Name) {
+			return &entry;
+		}
+	}
+
 	return NULL;
 }

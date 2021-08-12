@@ -1,6 +1,7 @@
 #pragma once
 #define WIN32_LEAN_AND_MEAN
 #include <Windows.h>
+#include <shlobj_core.h>
 #include <stdexcept>
 #include <vector>
 #include <string>
@@ -94,6 +95,7 @@ public:
 	~PEInfo();
 
 	IMAGE_SECTION_HEADER *GetSection(LPCSTR szSectionName);
+	EXPORT_TABLE_ENTRY *GetExport(std::string Name);
 	VOID Parse(LPBYTE lpFileBuffer);
 	VOID Close();
 
