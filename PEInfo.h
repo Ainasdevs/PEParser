@@ -1,12 +1,8 @@
 #pragma once
 #define WIN32_LEAN_AND_MEAN
 #include <Windows.h>
-#include <shlobj_core.h>
-#include <stdexcept>
 #include <vector>
 #include <string>
-#include <sstream>
-#include <cstdio>
 
 #pragma warning(disable:26495)
 struct EXPORT_TABLE_ENTRY {
@@ -91,6 +87,7 @@ public:
 
 	PEInfo(LPCTSTR szFilePath);
 	PEInfo(LPBYTE lpFileBuffer);
+	PEInfo(const PEInfo &PE) = default;
 	PEInfo() = default;
 	~PEInfo();
 

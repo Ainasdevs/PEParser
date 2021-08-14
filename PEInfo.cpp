@@ -1,4 +1,6 @@
 #include "PEInfo.h"
+#include <shlobj_core.h>
+#include <stdexcept>
 
 PEInfo::PEInfo(LPCTSTR szFilePath) {
 	hFile = CreateFile(szFilePath, GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
