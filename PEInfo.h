@@ -3,11 +3,13 @@
 #include <Windows.h>
 #include <vector>
 #include <string>
+#include <utility>
 
 #pragma warning(disable:26495)
 struct EXPORT_TABLE_ENTRY {
 	std::string Name;
-	std::string Forwarder;
+	std::string ForwarderDll;
+	std::string ForwarderFunc;
 	DWORD Ordinal;
 	DWORD OrdinalBased;
 	union {
@@ -92,7 +94,9 @@ public:
 	~PEInfo();
 
 	IMAGE_SECTION_HEADER *GetSection(LPCSTR szSectionName);
+	IMAGE_SECTION_HEADER *GetSectionOfRVA(DWORD RVA);
 	EXPORT_TABLE_ENTRY *GetExport(std::string Name);
+
 	VOID Parse(LPBYTE lpFileBuffer);
 	VOID Close();
 
