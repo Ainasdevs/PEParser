@@ -95,7 +95,7 @@ public:
 
 	IMAGE_SECTION_HEADER *GetSection(LPCSTR szSectionName);
 	IMAGE_SECTION_HEADER *GetSectionOfRVA(DWORD RVA);
-	EXPORT_TABLE_ENTRY *GetExport(std::string Name);
+	EXPORT_TABLE_ENTRY *GetExport(std::string functionName);
 
 	VOID Parse(LPBYTE lpFileBuffer);
 	VOID Close();

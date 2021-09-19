@@ -365,10 +365,10 @@ IMAGE_SECTION_HEADER *PEInfo::GetSectionOfRVA(DWORD RVA) {
 	return NULL;
 }
 
-EXPORT_TABLE_ENTRY *PEInfo::GetExport(std::string Name) {
+EXPORT_TABLE_ENTRY *PEInfo::GetExport(std::string functionName) {
 	for(INT i = 0; i < ExportData.ExportTable.size(); i++) {
 		EXPORT_TABLE_ENTRY &entry = ExportData.ExportTable[i];
-		if(entry.Name == Name) {
+		if(entry.Name == functionName) {
 			return &entry;
 		}
 	}
